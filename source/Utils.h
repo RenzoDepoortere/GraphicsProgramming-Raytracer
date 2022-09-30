@@ -13,42 +13,78 @@ namespace dae
 		inline bool HitTest_Sphere(const Sphere& sphere, const Ray& ray, HitRecord& hitRecord, bool ignoreHitRecord = false)
 		{
 			//todo W1
-			
-			// Sphere-origin to ray-origin
-			const Vector3 tc{ sphere.origin - ray.origin };							
-			
-			// Calculate distances
-			const float TP{ Vector3::Dot(tc , ray.direction) };
-			const float CP{ sqrtf(tc.SqrMagnitude() - powf(TP,2.f)) };
 
-			if (CP > sphere.radius)
+			const Vector3 rayDirection{ ray.direction };
+			const Vector3 sphereToRay{ ray.origin - sphere.origin };
+			const float sphereRadius{ sphere.radius };
+
+			const float A{ Vector3::Dot(rayDirection,rayDirection) };
+			const float B{ Vector3::Dot(2 * rayDirection,sphereToRay) };
+			const float C{ Vector3::Dot(sphereToRay,sphereToRay) - (sphereRadius * sphereRadius) };
+
+			// When no hits
+			const float discriminant{ (B * B) - 4 * A * C };
+			if (discriminant < 0)
 			{
 				if (!ignoreHitRecord)
 				{
-					hitRecord.origin = ray.origin;
-					hitRecord.normal = ray.direction;
-					hitRecord.t = FLT_MAX;
-
-					hitRecord.materialIndex = 0;
 					hitRecord.didHit = false;
 				}
 
 				return false;
 			}
 
-			// Calculate distance betw P and IntersectionPoint
-			const float IP{ sqrtf(powf(sphere.radius,2.f) - powf(CP,2.f)) };
-			
-			// Distance from T to IntersectionPoint
-			const float IT{ TP - IP };	
+			const float t0{ (-B + sqrtf(discriminant)) / (2 * A) };
+			const float t1{ (-B - sqrtf(discriminant)) / (2 * A) };
+			float useableT{ t1 };
 
-			const Vector3 interSectionPoint{ ray.origin + IT * ray.direction };
+			// Check if can later switch to t0, if it's not under rayMin
+			bool canSwitch{true};
+			if (t0 < ray.min)
+			{
+				canSwitch = false;
+			}
 
+			// When t1 is under rayMin, use other t if possible
+			if (t1 < ray.min)
+			{
+				if (canSwitch)
+				{
+					useableT = t0;
+				}
+				else
+				{
+					if (!ignoreHitRecord)
+					{
+						hitRecord.didHit = false;
+					}
+
+					return false;
+				}
+				
+			}
+
+			// When over max, no hit
+			if (useableT > ray.max)
+			{
+				if (!ignoreHitRecord)
+				{
+					hitRecord.didHit = false;
+				}
+
+				return false;
+			}
+
+			const Vector3 hitPoint{ ray.origin + useableT * ray.direction };
+			Vector3 normal{ hitPoint - sphere.origin };
+			normal.Normalize();
+
+			// When hit
 			if (!ignoreHitRecord)
 			{
-				hitRecord.origin = ray.origin;
-				hitRecord.normal = ray.direction;
-				hitRecord.t = IT;
+				hitRecord.origin = hitPoint;
+				hitRecord.normal = normal;
+				hitRecord.t = useableT;
 
 				hitRecord.materialIndex = sphere.materialIndex;
 				hitRecord.didHit = true;
@@ -68,50 +104,26 @@ namespace dae
 		inline bool HitTest_Plane(const Plane& plane, const Ray& ray, HitRecord& hitRecord, bool ignoreHitRecord = false)
 		{
 			//todo W1
-			
-			const Vector3 unitX{ Vector3::UnitX };
-			const Vector3 unitY{ Vector3::UnitY };
-			Vector3 planeDirection{};
 
-			const bool equalX{ plane.normal.x == unitX.x || plane.normal.x == -unitX.x };
-			if (equalX)
-			{
-				planeDirection = Vector3::Cross(unitY, plane.normal);
-			}
-			else
-			{
-				planeDirection = Vector3::Cross(unitX, plane.normal);
-			}
-				
-			const Vector3 crossCheck{ Vector3::Cross(planeDirection,ray.direction) };
-			if (crossCheck.Magnitude() == 0)
+			const Vector3 rayToPlane{ plane.origin - ray.origin };
+			const float distanceToPlane{ Vector3::Dot(rayToPlane,plane.normal) / Vector3::Dot(ray.direction,plane.normal) };
+			
+			const bool isInsideBoundaries{ ray.min < distanceToPlane && distanceToPlane < ray.max };
+			if (!isInsideBoundaries)
 			{
 				if (!ignoreHitRecord)
 				{
-					hitRecord.origin = ray.origin;
-					hitRecord.normal = ray.direction;
-					hitRecord.t = FLT_MAX;
-
-					hitRecord.materialIndex = 0;
 					hitRecord.didHit = false;
 				}
 
 				return false;
 			}
 
-			/*Vector3 intersectingPoint{};
-			intersectingPoint.x = plane.origin.x * ray.direction.x / ray.origin.x;
-			intersectingPoint.y = plane.origin.y * ray.direction.y / ray.origin.y;
-			intersectingPoint.z = plane.origin.z * ray.direction.z / ray.origin.z;
-
-			const Vector3 rayHitPiece{ intersectingPoint - ray.origin };*/
-			const float distanceToPlane{ (Vector3::Dot(plane.normal,plane.origin) - Vector3::Dot(plane.normal,ray.origin))
-										/ Vector3::Dot(plane.normal,ray.direction) };
-			
+			const Vector3 hitPoint{ ray.origin + distanceToPlane * ray.direction };
 			if (!ignoreHitRecord)
 			{
-				hitRecord.origin = ray.origin;
-				hitRecord.normal = ray.direction;
+				hitRecord.origin = hitPoint;
+				hitRecord.normal = plane.normal;
 				hitRecord.t = distanceToPlane;
 
 				hitRecord.materialIndex = plane.materialIndex;	
@@ -164,8 +176,20 @@ namespace dae
 		inline Vector3 GetDirectionToLight(const Light& light, const Vector3 origin)
 		{
 			//todo W3
-			assert(false && "No Implemented Yet!");
-			return {};
+			
+			Vector3 originToLight{};
+			// Directional Light doesn't have origin
+			if (light.type == LightType::Directional)
+			{
+				originToLight = -light.direction;
+				originToLight *= FLT_MAX;
+			}
+			else
+			{
+				originToLight = light.origin - origin;
+			}
+
+			return originToLight;
 		}
 
 		inline ColorRGB GetRadiance(const Light& light, const Vector3& target)

@@ -41,43 +41,66 @@ void Renderer::Render(Scene* pScene) const
 			const float pxc{ px + 0.5f };
 			const float pyc{ py + 0.5f };
 
+			const float fovAngle{ std::tanf(camera.fovAngle * TO_RADIANS / 2)};
+
+			const Matrix cameraToWorld{ camera.CalculateCameraToWorld() };
+
 			// Calculate rasterSpace to cameraSpace
-			cx = ((2 * pxc / m_Width) - 1) * aspectRatio;
-			cy = float(1 - (2 * pyc / m_Height));
+			cx = ((2 * pxc / m_Width) - 1) * (aspectRatio * fovAngle);
+			cy = float(1 - (2 * pyc / m_Height)) * fovAngle;
 
 			// Calculate rayDirectionVector
-			rayDirection = cx * camera.right + cy * camera.up + camera.forward;
+			rayDirection = cx * Vector3::UnitX + cy * Vector3::UnitY + Vector3::UnitZ;
 			rayDirection.Normalize();
 
-			// TESTS
+			// Transform rayDirection
+			rayDirection = cameraToWorld.TransformVector(rayDirection);
 
-			// TEST_RAY
-			Ray testRay{ { 0,0,0 }, rayDirection };
-			
-			// ColorRGB finalColor{ rayDirection.x, rayDirection.y, rayDirection.z };
-			 
-			// TEST_SPHERE
+			// Show results with color
+			const Ray viewRay{ camera.origin, rayDirection };
 			ColorRGB finalColor{};
 			HitRecord closestHit{};
-			//Sphere testSphere{ {0,0,100.f},50.f,0 };
 
-			pScene->GetClosestHit(testRay, closestHit);
-			//GeometryUtils::HitTest_Sphere(testSphere, testRay, closestHit);
-			
+			pScene->GetClosestHit(viewRay, closestHit);
 			if (closestHit.didHit)
 			{
+				Ray hitToLight{};
+				hitToLight.origin = closestHit.origin;
+
+				Vector3 hitToLightDirection{};
+				float hitToLightDirectionMagnitude{};
+
+				bool isOccluded{ false };
+
+				// Check if hitToLight is obstructed
+				for (size_t idx{}; idx < lights.size(); idx++)
+				{
+					hitToLightDirection = LightUtils::GetDirectionToLight(lights[idx], closestHit.origin);
+					hitToLightDirectionMagnitude = hitToLightDirection.Magnitude();
+
+					hitToLight.direction = hitToLightDirection;
+					hitToLight.direction.Normalize();
+
+					hitToLight.max = hitToLightDirectionMagnitude;
+
+					// If nothing obstructs, there is light and breaks loop
+					const bool isInsideBoundaries{ viewRay.min < hitToLightDirectionMagnitude
+													&& hitToLightDirectionMagnitude < viewRay.max };
+
+					// If inside boundaries and hits something, light = obstructed
+					if (isInsideBoundaries)
+					{
+						isOccluded = pScene->DoesHit(hitToLight);
+					}
+				}
+
+				// Darken when isOccluded, otherwise normal color
 				finalColor = materials[closestHit.materialIndex]->Shade();
-
-				/* const float scaled_t = (closestHit.t - 50.f) / 40.f;
-				 finalColor = { scaled_t,scaled_t,scaled_t };*/
+				if (isOccluded)
+				{
+					finalColor *= 0.5f;
+				}
 			}
-
-
-			float gradient = px / static_cast<float>(m_Width);
-			gradient += py / static_cast<float>(m_Width);
-			gradient /= 2.0f;
-
-			//ColorRGB finalColor{ gradient, gradient, gradient };
 
 			//Update Color in Buffer
 			finalColor.MaxToOne();
@@ -86,8 +109,6 @@ void Renderer::Render(Scene* pScene) const
 				static_cast<uint8_t>(finalColor.r * 255),
 				static_cast<uint8_t>(finalColor.g * 255),
 				static_cast<uint8_t>(finalColor.b * 255));
-
-			
 		}
 	}
 
