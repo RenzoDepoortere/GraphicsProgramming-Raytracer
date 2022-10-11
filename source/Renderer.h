@@ -23,7 +23,19 @@ namespace dae
 		void Render(Scene* pScene) const;
 		bool SaveBufferToImage() const;
 
+		void CycleLightingMode();
+		void ToggleShadows() { m_ShadowsEnabled = !m_ShadowsEnabled; };
+
 	private:
+
+		enum class LightingMode
+		{
+			ObservedArea,	// Lambert Cosine Law
+			Radiance,		// Incident Radiance
+			BRDF,			// Scattering of the light
+			Combined		// ObservedArea * Radiance * BRDF
+		};
+
 		SDL_Window* m_pWindow{};
 
 		SDL_Surface* m_pBuffer{};
@@ -31,5 +43,8 @@ namespace dae
 
 		int m_Width{};
 		int m_Height{};
+
+		LightingMode m_CurrentLightMode{ LightingMode::Combined };
+		bool m_ShadowsEnabled{ true };
 	};
 }

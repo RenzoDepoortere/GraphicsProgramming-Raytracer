@@ -64,17 +64,24 @@ void Renderer::Render(Scene* pScene) const
 			pScene->GetClosestHit(viewRay, closestHit);
 			if (closestHit.didHit)
 			{
+				// HitToLight Variables
 				Ray hitToLight{};
 				hitToLight.origin = closestHit.origin;
 
 				Vector3 hitToLightDirection{};
 				float hitToLightDirectionMagnitude{};
 
+				// Shadow Variables
 				bool isOccluded{ false };
 
-				// Check if hitToLight is obstructed
+				// Lighting Variables
+				ColorRGB radiance{};
+				ColorRGB BRDF{};
+
+				// Check all lighting
 				for (size_t idx{}; idx < lights.size(); idx++)
 				{
+					// Init HitToLight Variables
 					hitToLightDirection = LightUtils::GetDirectionToLight(lights[idx], closestHit.origin);
 					hitToLightDirectionMagnitude = hitToLightDirection.Magnitude();
 
@@ -83,27 +90,67 @@ void Renderer::Render(Scene* pScene) const
 
 					hitToLight.max = hitToLightDirectionMagnitude;
 
-					// If nothing obstructs, there is light and breaks loop
+					// If !insideBoundaries, continue
 					const bool isInsideBoundaries{ viewRay.min < hitToLightDirectionMagnitude
 													&& hitToLightDirectionMagnitude < viewRay.max };
-
-					// If inside boundaries and hits something, light = obstructed
-					if (isInsideBoundaries)
+					if (!isInsideBoundaries)
 					{
-						isOccluded = pScene->DoesHit(hitToLight);
+						continue;
 					}
+							
+					// Calculate ObservedArea --> lighted area
+					const float observedArea{ Vector3::Dot(closestHit.normal, hitToLight.direction) };
+					// Check for negative values
+					if (observedArea < 0)
+					{
+						continue;
+					}
+
+					// If something obstructs, continue
+					if (pScene->DoesHit(hitToLight))
+					{
+						if (m_ShadowsEnabled) continue;
+					}
+					/*else
+					{
+						isOccluded = false;
+					}*/
+
+					// Calculate Radiance --> intensity
+					radiance = LightUtils::GetRadiance(lights[idx], closestHit.origin);
+
+					// Calculate BRDFrgb --> Diffuse + Specular
+					BRDF = materials[closestHit.materialIndex]->Shade(closestHit, hitToLight.direction, viewRay.direction);
+
+					// Calculate finalLightingColor, switch between calculation methods
+					switch (m_CurrentLightMode)
+					{
+					case dae::Renderer::LightingMode::ObservedArea:
+						finalColor += observedArea * ColorRGB{ 1,1,1 };
+						break;
+					case dae::Renderer::LightingMode::Radiance:
+						finalColor += radiance;
+						break;
+					case dae::Renderer::LightingMode::BRDF:
+						finalColor += BRDF;
+						break;
+					case dae::Renderer::LightingMode::Combined:
+						finalColor += radiance * BRDF * observedArea;
+						break;
+							
+					}
+					
 				}
 
-				// Darken when isOccluded, otherwise normal color
-				finalColor = materials[closestHit.materialIndex]->Shade();
-				if (isOccluded)
-				{
-					finalColor *= 0.5f;
-				}
-			}
+				//// Darken when isOccluded
+				//if (isOccluded && m_ShadowsEnabled)
+				//{
+				//	
+				//}
 
-			//Update Color in Buffer
-			finalColor.MaxToOne();
+				// Update Color in Buffer
+				finalColor.MaxToOne();
+			}		
 
 			m_pBufferPixels[px + (py * m_Width)] = SDL_MapRGB(m_pBuffer->format,
 				static_cast<uint8_t>(finalColor.r * 255),
@@ -120,4 +167,23 @@ void Renderer::Render(Scene* pScene) const
 bool Renderer::SaveBufferToImage() const
 {
 	return SDL_SaveBMP(m_pBuffer, "RayTracing_Buffer.bmp");
+}
+
+void Renderer::CycleLightingMode()
+{
+	switch (m_CurrentLightMode)
+	{
+	case dae::Renderer::LightingMode::ObservedArea:
+		m_CurrentLightMode = LightingMode::Radiance;
+		break;
+	case dae::Renderer::LightingMode::Radiance:
+		m_CurrentLightMode = LightingMode::BRDF;
+		break;
+	case dae::Renderer::LightingMode::BRDF:
+		m_CurrentLightMode = LightingMode::Combined;
+		break;
+	case dae::Renderer::LightingMode::Combined:
+		m_CurrentLightMode = LightingMode::ObservedArea;
+		break;
+	}
 }

@@ -99,36 +99,51 @@ namespace dae
 		}
 		void MovementInput(const uint8_t* pKeyboardState, float deltaTime)
 		{
-			// FIX: use the axises to move ( forward * movementSpeed * deltaTime )
 			const float movementSpeed{ 5.f };
+
+			const Vector3 worldUp{ Vector3::UnitY };
+			Vector3 rightVector{ Vector3::Cross(worldUp,forward) };
+			rightVector.Normalize();
 
 			// Z-axis
 			if (pKeyboardState[SDL_SCANCODE_W])
 			{
-				origin.z += movementSpeed * deltaTime;
+				origin += forward * movementSpeed * deltaTime;
 			}
 			if (pKeyboardState[SDL_SCANCODE_S])
 			{
-				origin.z -= movementSpeed * deltaTime;
+				origin -= forward * movementSpeed * deltaTime;
+			}
+
+			// Y-axis
+			if (pKeyboardState[SDL_SCANCODE_Q])
+			{
+				origin += up * movementSpeed * deltaTime;
+			}
+			if (pKeyboardState[SDL_SCANCODE_E])
+			{
+				origin -= up * movementSpeed * deltaTime;
 			}
 
 			// X-axis
 			if (pKeyboardState[SDL_SCANCODE_A])
 			{
-				origin.x -= movementSpeed * deltaTime;
+				origin -= rightVector * movementSpeed * deltaTime;
 			}
 			if (pKeyboardState[SDL_SCANCODE_D])
 			{
-				origin.x += movementSpeed * deltaTime;
+				origin += rightVector * movementSpeed * deltaTime;
 			}
 		}
 
 		void MouseInput(const uint32_t mouseState, int mouseX, int mouseY, float deltaTime)
 		{
+			const float movementSpeed{ 3.f };
+
 			if (mouseState& SDL_BUTTON(SDL_BUTTON_RIGHT))
 			{
-				totalPitch -= mouseY * deltaTime;
-				totalYaw += mouseX * deltaTime;
+				totalPitch -= mouseY * movementSpeed * deltaTime;
+				totalYaw += mouseX * movementSpeed * deltaTime;
 
 				const Matrix rotationMatrix{ Matrix::CreateRotation(totalPitch * TO_RADIANS,totalYaw * TO_RADIANS,0) };
 				
