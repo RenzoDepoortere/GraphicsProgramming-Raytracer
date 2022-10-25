@@ -51,6 +51,9 @@ namespace dae
 		std::vector<Light> m_Lights{};
 		std::vector<Material*> m_Materials{};
 
+		// Temp (Individual Triangle Testing)
+		// std::vector<Triangle> m_Triangles{};
+
 		Camera m_Camera{};
 
 		Sphere* AddSphere(const Vector3& origin, float radius, unsigned char materialIndex = 0);
@@ -124,5 +127,65 @@ namespace dae
 		Scene_W3& operator=(Scene_W3&&) noexcept = delete;
 
 		void Initialize() override;
+	};
+
+	//+++++++++++++++++++++++++++++++++++++++++
+	//WEEK 4 Test Scene
+	class TestScene_W4 final : public Scene
+	{
+	public:
+		TestScene_W4() = default;
+		~TestScene_W4() override = default;
+
+		TestScene_W4(const TestScene_W4&) = delete;
+		TestScene_W4(TestScene_W4&&) noexcept = delete;
+		TestScene_W4& operator=(const TestScene_W4&) = delete;
+		TestScene_W4& operator=(TestScene_W4&&) noexcept = delete;
+
+		void Initialize() override;
+		void Update(Timer* pTimer) override;
+
+	private:
+		TriangleMesh* pMesh{ nullptr };
+	};
+
+	//+++++++++++++++++++++++++++++++++++++++++
+	//WEEK 4 Reference Scene
+	class ReferenceScene_W4 final : public Scene
+	{
+	public:
+		ReferenceScene_W4() = default;
+		~ReferenceScene_W4() override = default;
+
+		ReferenceScene_W4(const ReferenceScene_W4&) = delete;
+		ReferenceScene_W4(ReferenceScene_W4&&) noexcept = delete;
+		ReferenceScene_W4& operator=(const ReferenceScene_W4&) = delete;
+		ReferenceScene_W4& operator=(ReferenceScene_W4&&) noexcept = delete;
+
+		void Initialize() override;
+		void Update(Timer* pTimer) override;
+
+	private:
+		TriangleMesh* m_Meshes[3]{nullptr};
+	};
+
+	//+++++++++++++++++++++++++++++++++++++++++
+	//WEEK 4 Bunny Scene
+	class BunnyScene_W4 final : public Scene
+	{
+	public:
+		BunnyScene_W4() = default;
+		~BunnyScene_W4() override = default;
+
+		BunnyScene_W4(const BunnyScene_W4&) = delete;
+		BunnyScene_W4(BunnyScene_W4&&) noexcept = delete;
+		BunnyScene_W4& operator=(const BunnyScene_W4&) = delete;
+		BunnyScene_W4& operator=(BunnyScene_W4&&) noexcept = delete;
+
+		void Initialize() override;
+		void Update(Timer* pTimer) override;
+
+	private:
+		TriangleMesh* pMesh{ nullptr };
 	};
 }

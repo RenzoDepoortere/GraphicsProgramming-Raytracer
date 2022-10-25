@@ -118,11 +118,11 @@ namespace dae
 			// Y-axis
 			if (pKeyboardState[SDL_SCANCODE_Q])
 			{
-				origin += up * movementSpeed * deltaTime;
+				origin -= up * movementSpeed * deltaTime;
 			}
 			if (pKeyboardState[SDL_SCANCODE_E])
 			{
-				origin -= up * movementSpeed * deltaTime;
+				origin += up * movementSpeed * deltaTime;
 			}
 
 			// X-axis

@@ -111,10 +111,6 @@ void Renderer::Render(Scene* pScene) const
 					{
 						if (m_ShadowsEnabled) continue;
 					}
-					/*else
-					{
-						isOccluded = false;
-					}*/
 
 					// Calculate Radiance --> intensity
 					radiance = LightUtils::GetRadiance(lights[idx], closestHit.origin);
@@ -141,12 +137,6 @@ void Renderer::Render(Scene* pScene) const
 					}
 					
 				}
-
-				//// Darken when isOccluded
-				//if (isOccluded && m_ShadowsEnabled)
-				//{
-				//	
-				//}
 
 				// Update Color in Buffer
 				finalColor.MaxToOne();

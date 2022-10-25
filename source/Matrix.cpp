@@ -105,8 +105,14 @@ namespace dae {
 	Matrix Matrix::CreateTranslation(float x, float y, float z)
 	{
 		//todo W1
-		assert(false && "Not Implemented Yet");
-		return {};
+		Matrix translationMatrix{};
+
+		translationMatrix[0] = { {1,0,0},x };
+		translationMatrix[1] = { {0,1,0},y };
+		translationMatrix[2] = { {0,0,1},z };
+		translationMatrix[3] = { {0,0,0},1 };
+
+		return translationMatrix;
 	}
 
 	Matrix Matrix::CreateTranslation(const Vector3& t)
@@ -171,8 +177,14 @@ namespace dae {
 	Matrix Matrix::CreateScale(float sx, float sy, float sz)
 	{
 		//todo W1
-		assert(false && "Not Implemented Yet");
-		return {};
+		Matrix scaleMatrix{};
+
+		scaleMatrix[0] = { {sx,0,0},0 };
+		scaleMatrix[1] = { {0,sy,0},0 };
+		scaleMatrix[2] = { {0,0,sz},0 };
+		scaleMatrix[3] = { {0,0,0},1 };
+
+		return scaleMatrix;
 	}
 
 	Matrix Matrix::CreateScale(const Vector3& s)

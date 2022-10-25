@@ -26,11 +26,7 @@ namespace dae
 			const float discriminant{ (B * B) - 4 * A * C };
 			if (discriminant < 0)
 			{
-				if (!ignoreHitRecord)
-				{
-					hitRecord.didHit = false;
-				}
-
+				hitRecord.didHit = false;
 				return false;
 			}
 
@@ -54,11 +50,7 @@ namespace dae
 				}
 				else
 				{
-					if (!ignoreHitRecord)
-					{
-						hitRecord.didHit = false;
-					}
-
+					hitRecord.didHit = false;
 					return false;
 				}
 				
@@ -67,11 +59,7 @@ namespace dae
 			// When over max, no hit
 			if (useableT > ray.max)
 			{
-				if (!ignoreHitRecord)
-				{
-					hitRecord.didHit = false;
-				}
-
+				hitRecord.didHit = false;
 				return false;
 			}
 
@@ -87,9 +75,9 @@ namespace dae
 				hitRecord.t = useableT;
 
 				hitRecord.materialIndex = sphere.materialIndex;
-				hitRecord.didHit = true;
 			}
 
+			hitRecord.didHit = true;
 			return true;
 		}
 
@@ -111,11 +99,7 @@ namespace dae
 			const bool isInsideBoundaries{ ray.min < distanceToPlane && distanceToPlane < ray.max };
 			if (!isInsideBoundaries)
 			{
-				if (!ignoreHitRecord)
-				{
-					hitRecord.didHit = false;
-				}
-
+				hitRecord.didHit = false;
 				return false;
 			}
 
@@ -127,9 +111,9 @@ namespace dae
 				hitRecord.t = distanceToPlane;
 
 				hitRecord.materialIndex = plane.materialIndex;	
-				hitRecord.didHit = true;
 			}
 
+			hitRecord.didHit = true;
 			return true;
 		}
 
@@ -144,8 +128,99 @@ namespace dae
 		inline bool HitTest_Triangle(const Triangle& triangle, const Ray& ray, HitRecord& hitRecord, bool ignoreHitRecord = false)
 		{
 			//todo W5
-			assert(false && "No Implemented Yet!");
-			return false;
+			
+			// Check if ray is not perpendicular
+			const float triangleNormalRayDot{ Vector3::Dot(triangle.normal,ray.direction) };
+			if (triangleNormalRayDot == 0)
+			{
+				hitRecord.didHit = false;
+				return false;
+			}
+
+			// Culling
+			const bool seesFront{ Vector3::Dot(triangle.normal,ray.direction) < 0 };
+			const bool seesBack{ Vector3::Dot(triangle.normal, ray.direction) > 0 };	
+			TriangleCullMode checkTriangleCull{ triangle.cullMode };
+			
+			if (ignoreHitRecord)
+			{
+				switch (checkTriangleCull)
+				{
+				case dae::TriangleCullMode::FrontFaceCulling:
+					checkTriangleCull = TriangleCullMode::BackFaceCulling;
+					break;
+				case dae::TriangleCullMode::BackFaceCulling:
+					checkTriangleCull = TriangleCullMode::FrontFaceCulling;
+					break;
+				}
+			}
+
+			switch (checkTriangleCull)
+			{
+			case TriangleCullMode::FrontFaceCulling:
+				
+				if (seesFront)
+				{
+					hitRecord.didHit = false;
+					return false;
+				}
+
+				break;
+			case TriangleCullMode::BackFaceCulling:
+
+				if (seesBack)
+				{
+					hitRecord.didHit = false;
+					return false;
+				}
+
+				break;
+			}
+
+			// Check if hit with trianglePlane
+			Plane trianglePlane{};
+			trianglePlane.origin = (triangle.v0 + triangle.v1 + triangle.v2) / 3;
+			trianglePlane.normal = triangle.normal;
+
+			HitRecord tempHitRecord{};
+			HitTest_Plane(trianglePlane, ray, tempHitRecord);
+			if (!tempHitRecord.didHit)
+			{
+				hitRecord.didHit = false;
+				return false;
+			}
+
+			// Check if hit inside triangle
+			Vector3 c{};
+
+			c = tempHitRecord.origin - triangle.v0;
+			const Vector3 edge1{ triangle.v1 - triangle.v0 };
+			const bool firstEdgeIsNegative{ Vector3::Dot(Vector3::Cross(edge1, c), triangle.normal) < 0 };
+
+			c = tempHitRecord.origin - triangle.v1;
+			const Vector3 edge2{ triangle.v2 - triangle.v1 };
+			const bool secondEdgeIsNegative{ Vector3::Dot(Vector3::Cross(edge2, c),triangle.normal) < 0 };
+
+			c = tempHitRecord.origin - triangle.v2;
+			const Vector3 edge3{ triangle.v0 - triangle.v2 };
+			const bool thirdEdgeIsNegative{ Vector3::Dot(Vector3::Cross(edge3, c),triangle.normal) < 0 };	
+		
+			// If not inside triangle, false
+			if (firstEdgeIsNegative || secondEdgeIsNegative || thirdEdgeIsNegative)
+			{
+				hitRecord.didHit = false;
+				return false;
+			}
+
+			// Else true
+			if (!ignoreHitRecord)
+			{
+				hitRecord = tempHitRecord;
+				hitRecord.materialIndex = triangle.materialIndex;
+			}
+
+			hitRecord.didHit = true;
+			return true;
 		}
 
 		inline bool HitTest_Triangle(const Triangle& triangle, const Ray& ray)
@@ -158,8 +233,45 @@ namespace dae
 		inline bool HitTest_TriangleMesh(const TriangleMesh& mesh, const Ray& ray, HitRecord& hitRecord, bool ignoreHitRecord = false)
 		{
 			//todo W5
-			assert(false && "No Implemented Yet!");
-			return false;
+			Triangle currentTriangle{};
+			currentTriangle.materialIndex = mesh.materialIndex;
+			currentTriangle.cullMode = mesh.cullMode;
+
+			int trianglesChecked{};
+			HitRecord tempHitRecord{};
+			HitRecord closestRecord{};
+
+			for (size_t idx{}; idx < mesh.indices.size(); idx += 3)
+			{
+				currentTriangle.v0 = mesh.transformedPositions[mesh.indices[idx]];
+				currentTriangle.v1 = mesh.transformedPositions[mesh.indices[idx + 1]];
+				currentTriangle.v2 = mesh.transformedPositions[mesh.indices[idx + 2]];
+
+				currentTriangle.normal = mesh.transformedNormals[trianglesChecked];
+
+				HitTest_Triangle(currentTriangle, ray, tempHitRecord);
+				if (tempHitRecord.didHit)
+				{
+					if (tempHitRecord.t < closestRecord.t && tempHitRecord.t >= 0)
+					{
+						closestRecord = tempHitRecord;
+					}
+				}				
+
+				++trianglesChecked;
+			}
+
+			// Give closestHit
+			if (closestRecord.didHit)
+			{
+				hitRecord = closestRecord;
+				return true;
+			}
+			else
+			{
+				hitRecord.didHit = false;
+				return false;
+			}
 		}
 
 		inline bool HitTest_TriangleMesh(const TriangleMesh& mesh, const Ray& ray)
